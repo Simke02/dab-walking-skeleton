@@ -4,4 +4,4 @@ WORKDIR /tests
 
 COPY tests /tests/
 
-CMD [ "run", "/tests/hello-k6.js" ]
+CMD [ "run", "/tests/k6-tests.js" ]

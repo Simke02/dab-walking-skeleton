@@ -8,6 +8,7 @@ import postgres from "postgres";
 const app = new Hono();
 const sql = postgres();
 const redis = new Redis(6379, "redis");
+const REPLICA_ID = crypto.randomUUID();
 
 const redisCacheMiddleware = async (c, next) => {
   const cachedResponse = await redis.get(c.req.url);
@@ -36,14 +37,10 @@ const redisCacheMiddleware = async (c, next) => {
 
 app.use("/*", cors());
 app.use("/*", logger());
-
-app.get(
-  "/",
-  cache({
-    cacheName: "hello-cache",
-    wait: true,
-  }),
-);
+app.use("*", async (c, next) => {
+  c.res.headers.set("X-Replica-Id", REPLICA_ID);
+  await next();
+});
 
 app.get(
   "/",
