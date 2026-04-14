@@ -35,6 +35,10 @@ const redisCacheMiddleware = async (c, next) => {
   await redis.set(c.req.url, JSON.stringify(res));
 };
 
+const redisProducer = new Redis(6379, "redis");
+
+const QUEUE_NAME = "users";
+
 app.use("/*", cors());
 app.use("/*", logger());
 app.use("*", async (c, next) => {
@@ -88,5 +92,12 @@ app.get(
     return c.json({ message: `Hello ${c.req.param("name")}!` });
   },
 );
+
+app.post("/users", async (c) => {
+  const { name } = await c.req.json();
+  await redisProducer.lpush(QUEUE_NAME, JSON.stringify({ name }));
+  c.status(202);
+  return c.body("Accepted");
+});
 
 export default app;

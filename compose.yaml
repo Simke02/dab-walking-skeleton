@@ -17,6 +17,17 @@ services:
     depends_on:
       - server
 
+  consumer-server:
+    build: consumer-server
+    restart: unless-stopped
+    volumes:
+      - ./consumer-server:/app
+    env_file:
+      - project.env
+    depends_on:
+      - redis
+      - database
+
   server:
     build: server
     restart: unless-stopped
@@ -27,7 +38,7 @@ services:
     depends_on:
       - database
     deploy:
-      replicas: 2
+      replicas: 1
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.server-router.entrypoints=web"
