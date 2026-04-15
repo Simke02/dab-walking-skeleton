@@ -2,6 +2,7 @@ import { Hono } from "@hono/hono";
 import { cors } from "@hono/hono/cors";
 import { logger } from "@hono/hono/logger";
 import { cache } from "@hono/hono/cache";
+import { serveStatic } from "@hono/hono/deno";
 import { Redis } from "ioredis";
 import postgres from "postgres";
 
@@ -98,6 +99,80 @@ app.post("/users", async (c) => {
   await redisProducer.lpush(QUEUE_NAME, JSON.stringify({ name }));
   c.status(202);
   return c.body("Accepted");
+});
+
+const getItems = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const items = Array.from(
+    { length: 1000 },
+    (_, i) => ({ id: i, name: `Item ${i}` }),
+  );
+  return items;
+};
+
+app.get("/ssr", async (c) => {
+  const items = await getItems();
+
+  return c.html(`<html>
+    <head>
+    </head>
+    <body>
+      <ul>
+        ${items.map((item) => `<li>${item.name}</li>`).join("")}
+      </ul>
+    </body>
+  </html>`);
+});
+
+app.use("/public/*", serveStatic({ root: "." }));
+
+app.get("/items", async (c) => {
+  const items = await getItems();
+  return c.json(items);
+});
+
+const getInitialItems = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  return Array.from({ length: 100 }, (_, i) => ({ id: i, name: `Item ${i}` }));
+};
+
+const getRemainingItems = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  return Array.from(
+    { length: 900 },
+    (_, i) => ({ id: i + 100, name: `Item ${i + 100}` }),
+  );
+};
+
+app.get("/items/remaining", async (c) => {
+  const items = await getRemainingItems();
+  return c.json(items);
+});
+
+app.get("/hybrid", async (c) => {
+  const items = await getInitialItems();
+
+  return c.html(`<html>
+    <head>
+      <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+          const list = document.getElementById("list");
+          const items = await fetch("http://localhost:8000/items/remaining");
+          const json = await items.json();
+          for (const item of json) {
+            const li = document.createElement("li");
+            li.textContent = item.name;
+            list.appendChild(li);
+          }
+        });
+      </script>
+    </head>
+    <body>
+      <ul id="list">
+        ${items.map((item) => `<li>${item.name}</li>`).join("")}
+      </ul>
+    </body>
+  </html>`);
 });
 
 export default app;
