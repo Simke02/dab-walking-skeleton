@@ -1,8 +1,6 @@
 import { Hono } from "@hono/hono";
 import { cors } from "@hono/hono/cors";
 import { logger } from "@hono/hono/logger";
-import { cache } from "@hono/hono/cache";
-import { serveStatic } from "@hono/hono/deno";
 import { Redis } from "ioredis";
 import postgres from "postgres";
 
@@ -47,135 +45,8 @@ app.use("*", async (c, next) => {
   await next();
 });
 
-app.get(
-  "/",
-  async (c) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return c.json({ message: "Hello world!" });
-  },
-);
-
-app.get("/todos", async (c) => {
-  const todos = await sql`SELECT * FROM todos`;
-  return c.json(todos);
-});
-
-app.post(
-  "/", async (c) => {
-    await caches.delete("hello-cache");
-    return c.json({ message: "Cache cleared!" });
-  },
-);
-
-app.get("/redis-test", async (c) => {
-  let count = await redis.get("test");
-  if (!count) {
-    count = 0;
-  } else {
-    count = Number(count);
-  }
-
-  count++;
-
-  await redis.set("test", count);
-  return c.json({ count });
-});
-
-app.get(
-  "/hello/*",
-  redisCacheMiddleware,
-);
-
-app.get(
-  "/hello/:name",
-  async (c) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return c.json({ message: `Hello ${c.req.param("name")}!` });
-  },
-);
-
-app.post("/users", async (c) => {
-  const { name } = await c.req.json();
-  await redisProducer.lpush(QUEUE_NAME, JSON.stringify({ name }));
-  c.status(202);
-  return c.body("Accepted");
-});
-
-const getItems = async () => {
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  const items = Array.from(
-    { length: 1000 },
-    (_, i) => ({ id: i, name: `Item ${i}` }),
-  );
-  return items;
-};
-
-app.get("/ssr", async (c) => {
-  const items = await getItems();
-
-  return c.html(`<html>
-    <head>
-    </head>
-    <body>
-      <ul>
-        ${items.map((item) => `<li>${item.name}</li>`).join("")}
-      </ul>
-    </body>
-  </html>`);
-});
-
-app.use("/public/*", serveStatic({ root: "." }));
-
-app.get("/items", async (c) => {
-  const items = await getItems();
-  return c.json(items);
-});
-
-const getInitialItems = async () => {
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  return Array.from({ length: 100 }, (_, i) => ({ id: i, name: `Item ${i}` }));
-};
-
-const getRemainingItems = async () => {
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  return Array.from(
-    { length: 900 },
-    (_, i) => ({ id: i + 100, name: `Item ${i + 100}` }),
-  );
-};
-
-app.get("/items/remaining", async (c) => {
-  const items = await getRemainingItems();
-  return c.json(items);
-});
-
-app.get("/hybrid", async (c) => {
-  const items = await getInitialItems();
-
-  return c.html(`<html>
-    <head>
-      <script>
-        document.addEventListener("DOMContentLoaded", () => {
-          const observer = new IntersectionObserver((entries, obs) => {
-            if (entries[0].isIntersecting) {
-              import("/public/loadRemaining.js").then((module) => {
-                module.loadRemaining();
-              });
-              obs.disconnect();
-            }
-          });
-
-          observer.observe(document.getElementById('last'));
-        });
-      </script>
-    </head>
-    <body>
-      <ul id="list">
-        ${items.map((item) => `<li>${item.name}</li>`).join("")}
-        <li id="last">Loading...</li>
-      </ul>
-    </body>
-  </html>`);
+app.get("/api", (c) => {
+  return c.text("Hello new path!");
 });
 
 export default app;
