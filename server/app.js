@@ -25,6 +25,59 @@ app.use("*", async (c, next) => {
   await next();
 });
 
+app.use("*", async (c, next) => {
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  if (!session) {
+    return next();
+  }
+
+  c.set("user", session.user.name);
+  return next();
+});
+
+app.use("/api/ws-chat", async (c, next) => {
+  const user = c.get("user");
+  if (!user) {
+    c.status(401);
+    return c.json({ message: "Unauthorized" });
+  }
+
+  return next();
+});
+
+const sockets = new Set();
+
+app.get(
+  "/api/ws-chat",
+  upgradeWebSocket((c) => {
+    const user = c.get("user");
+    return {
+      onOpen: (event, ws) => {
+        sockets.add(ws);
+      },
+      onMessage(event, ws) {
+        const message = JSON.parse(event.data);
+        message.date = Date.now();
+        message.message = `${user}: ${message.message}`;
+
+        for (const socket of sockets) {
+          socket.send(
+            JSON.stringify(message),
+          );
+        }
+      },
+      onClose: (event, ws) => {
+        sockets.delete(ws);
+        ws.close();
+      },
+      onError: (event, ws) => {
+        sockets.delete(ws);
+        ws.close();
+      },
+    };
+  }),
+);
+
 app.get("/api", (c) => {
   return c.text("Hello new path!");
 });
