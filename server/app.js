@@ -1,45 +1,25 @@
 import { Hono } from "@hono/hono";
 import { cors } from "@hono/hono/cors";
 import { logger } from "@hono/hono/logger";
-import { Redis } from "ioredis";
+import { auth } from "./auth.js";
+import { upgradeWebSocket } from "@hono/hono/deno";
 import postgres from "postgres";
 
 const app = new Hono();
 const sql = postgres();
-const redis = new Redis(6379, "redis");
 const REPLICA_ID = crypto.randomUUID();
 
-const redisCacheMiddleware = async (c, next) => {
-  const cachedResponse = await redis.get(c.req.url);
-  if (cachedResponse) {
-    const res = JSON.parse(cachedResponse);
-    return Response.json(res.json, res);
-  }
-
-  await next();
-
-  if (!c.res.ok) {
-    return;
-  }
-
-  const clonedResponse = c.res.clone();
-
-  const res = {
-    status: clonedResponse.status,
-    statusText: clonedResponse.statusText,
-    headers: Object.fromEntries(clonedResponse.headers),
-    json: await clonedResponse.json(),
-  };
-
-  await redis.set(c.req.url, JSON.stringify(res));
-};
-
-const redisProducer = new Redis(6379, "redis");
-
-const QUEUE_NAME = "users";
-
-app.use("/*", cors());
+app.use("/*", cors({
+  origin: "http://localhost:8000",
+  allowHeaders: ["Content-Type", "Authorization"],
+  allowMethods: ["POST", "GET", "OPTIONS"],
+  exposeHeaders: ["Content-Length"],
+  maxAge: 600,
+  credentials: true,
+}));
 app.use("/*", logger());
+app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+
 app.use("*", async (c, next) => {
   c.res.headers.set("X-Replica-Id", REPLICA_ID);
   await next();

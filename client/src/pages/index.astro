@@ -1,9 +1,11 @@
 ---
 import FirstSvelteComponent from "../components/FirstSvelteComponent.svelte";
+import UserInfo from "../components/auth/UserInfo.svelte";
 const greet = Astro.props.greet || "component";
 import Layout from "../layouts/Layout.astro";
 ---
 <Layout>
+  <UserInfo client:visible />
   <p>Hello {greet}!</p>
   <p>plenty of lines</p>
   <p>(copy and paste dozens of these before the Hello component)</p>
